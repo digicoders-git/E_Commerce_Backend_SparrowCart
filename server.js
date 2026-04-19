@@ -33,7 +33,11 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: true,
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://e-commerce-admin-panel-sparrow-cart.vercel.app",
+    ],
     credentials: true,
   })
 );
