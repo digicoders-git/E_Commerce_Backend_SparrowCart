@@ -34,6 +34,7 @@ const userStorage = new CloudinaryStorage({
     folder: "society_users",
     allowed_formats: ["jpg", "jpeg", "png", "webp"],
     resource_type: "image",
+    format: "webp",
   },
 });
 
@@ -63,6 +64,7 @@ const sliderStorage = new CloudinaryStorage({
     folder: "society_sliders",
     allowed_formats: ["jpg", "jpeg", "png", "webp"],
     resource_type: "image",
+    format: "webp",
   },
 });
 
@@ -92,6 +94,7 @@ const offerImageStorage = new CloudinaryStorage({
     folder: "society_offers",
     allowed_formats: ["jpg", "jpeg", "png", "webp"],
     resource_type: "image",
+    format: "webp",
   },
 });
 
@@ -121,6 +124,7 @@ const categoryImageStorage = new CloudinaryStorage({
     folder: "society_categories",
     allowed_formats: ["jpg", "jpeg", "png", "webp"],
     resource_type: "image",
+    format: "webp",
   },
 });
 
@@ -150,6 +154,7 @@ const productImageStorage = new CloudinaryStorage({
     folder: "society_products",
     allowed_formats: ["jpg", "jpeg", "png", "webp"],
     resource_type: "image",
+    format: "webp",
   },
 });
 
@@ -179,6 +184,7 @@ const storeImageStorage = new CloudinaryStorage({
     folder: "society_stores",
     allowed_formats: ["jpg", "jpeg", "png", "webp"],
     resource_type: "image",
+    format: "webp",
   },
 });
 
