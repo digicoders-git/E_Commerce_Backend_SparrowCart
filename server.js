@@ -38,6 +38,7 @@ app.use(
       "http://localhost:5174",
       "http://localhost:5176",
       "https://e-commerce-admin-panel-sparrow-cart.vercel.app",
+      "https://www.sparrowcart.in"
     ],
     credentials: true,
   })
