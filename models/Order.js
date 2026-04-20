@@ -46,6 +46,14 @@ const orderSchema = new Schema(
     totalDiscount: { type: Number, default: 0 },
     grandTotal: { type: Number, default: 0 },
 
+    // Applied coupon details (if any)
+    couponApplied: {
+      code: { type: String, default: null },
+      discountType: { type: String, enum: ["percentage", "fixed", null], default: null },
+      discountValue: { type: Number, default: 0 },
+      discountAmount: { type: Number, default: 0 }, // actual ₹ deducted
+    },
+
     status: {
       type: String,
       enum: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
@@ -87,6 +95,7 @@ const orderSchema = new Schema(
     collectionOTP: { type: String, required: true },
 
     isDeleted: { type: Boolean, default: false },
+    isStockDeducted: { type: Boolean, default: false },
 
     createdAtIST: { type: String },
     updatedAtIST: { type: String },

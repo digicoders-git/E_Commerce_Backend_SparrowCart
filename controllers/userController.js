@@ -131,9 +131,9 @@ const verifyStoredOTP = (mobile, otp) => {
 };
 
 // ------------------------------
-// REGISTER: POST /api/users/request-otp/register
+// UNIFIED AUTH: POST /api/users/send-otp
 // ------------------------------
-export const requestRegisterOtp = async (req, res) => {
+export const requestSendOtp = async (req, res) => {
   try {
     const mobile = (req.body.mobile || req.body.mobileNumber || "").trim();
 
@@ -149,98 +149,14 @@ export const requestRegisterOtp = async (req, res) => {
       });
     }
 
-    const existing = await User.findOne({ mobile }).lean();
-
-    if (existing && !existing.isDeleted) {
-      return res.status(409).json({
-        message: "This mobile is already registered. Please login instead.",
-        alreadyRegistered: true,
-      });
-    }
-
-    // Generate OTP
-    const otp = generateOTP();
-    const expiresAt = Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000;
-
-    // Store OTP in memory
-    otpStore.set(mobile, {
-      otp,
-      expiresAt,
-      purpose: "register",
-      createdAt: new Date(),
-    });
-
-    // Send OTP via SMS
-    const smsResult = await sendOTPViaSMS(mobile, otp);
-
-    // For development/testing - show OTP
-    const showOtpInResponse =
-      process.env.NODE_ENV === "development" ||
-      process.env.SHOW_OTP === "true" ||
-      !smsResult.success;
-
-    if (smsResult.success) {
-      return res.json({
-        message:
-          "OTP sent successfully to your mobile number for registration.",
-        alreadyRegistered: false,
-        smsDelivered: true,
-        note: "OTP is valid for 10 minutes",
-        // Optional: Show OTP only in dev/test mode
-        ...(showOtpInResponse && { debugOtp: otp }),
-      });
-    } else {
-      // SMS failed but OTP is generated
-      console.warn(`SMS failed for ${mobile}. Generated OTP: ${otp}`);
-
-      return res.json({
-        message:
-          "OTP generated successfully for registration. Please check your SMS.",
-        alreadyRegistered: false,
-        smsDelivered: false,
-        note: "OTP is valid for 10 minutes",
-        // Show OTP in response for testing
-        debugOtp: otp,
-        debugNote: "SMS delivery issue. Use this OTP for testing.",
-      });
-    }
-  } catch (err) {
-    console.error("requestRegisterOtp error:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-// ------------------------------
-// LOGIN: POST /api/users/request-otp/login
-// ------------------------------
-export const requestLoginOtp = async (req, res) => {
-  try {
-    const mobile = (req.body.mobile || req.body.mobileNumber || "").trim();
-
-    if (!mobile) {
-      return res.status(400).json({ message: "Mobile is required." });
-    }
-
-    // Validate mobile number format
-    const mobileRegex = /^[6-9]\d{9}$/;
-    if (!mobileRegex.test(mobile.replace(/^\+91|^0/, ""))) {
-      return res.status(400).json({
-        message: "Please enter a valid 10-digit Indian mobile number.",
-      });
-    }
-
     const user = await User.findOne({ mobile }).lean();
+    
+    // Determine purpose: if user doesn't exist, it's registration, otherwise login
+    const purpose = (!user || user.isDeleted) ? "register" : "login";
 
-    if (!user || user.isDeleted) {
-      return res.status(404).json({
-        message: "User not found. Please register first.",
-        needRegistration: true,
-      });
-    }
-
-    if (user.isBlocked) {
+    if (user && user.isBlocked) {
       return res.status(403).json({
-        message: "User is blocked by admin. Login not allowed.",
+        message: "User is blocked by admin. Access not allowed.",
       });
     }
 
@@ -252,13 +168,12 @@ export const requestLoginOtp = async (req, res) => {
     otpStore.set(mobile, {
       otp,
       expiresAt,
-      purpose: "login",
+      purpose,
       createdAt: new Date(),
-      userId: user._id,
+      userId: user ? user._id : null,
     });
 
-    console.log(`📞 OTP generated for ${mobile}: ${otp}`);
-    console.log(`⏰ OTP expires at: ${new Date(expiresAt).toLocaleString()}`);
+    console.log(`📞 OTP generated for ${mobile} (Purpose: ${purpose}): ${otp}`);
 
     // Send OTP via SMS
     const smsResult = await sendOTPViaSMS(mobile, otp);
@@ -268,35 +183,46 @@ export const requestLoginOtp = async (req, res) => {
       process.env.NODE_ENV === "development" ||
       process.env.SHOW_OTP === "true" ||
       !smsResult.success ||
-      mobile === "9696559848"; // Always show for this mobile
+      mobile === "9696559848";
 
     if (smsResult.success) {
       return res.json({
-        message: "OTP sent successfully to your mobile number.",
-        needRegistration: false,
+        message: `OTP sent successfully to your mobile number for ${purpose === "register" ? "registration" : "login"}.`,
+        isNewUser: purpose === "register",
         smsDelivered: true,
         note: "OTP is valid for 10 minutes",
-        // Optional: Show OTP only in dev/test mode when explicitly enabled
         ...(showOtpInResponse && { debugOtp: otp }),
       });
     } else {
-      // SMS failed but OTP is generated
-      console.warn(`SMS failed for ${mobile}. Generated OTP: ${otp}`);
-
       return res.json({
-        message: "OTP generated successfully. Please check your SMS.",
-        needRegistration: false,
+        message: `OTP generated successfully for ${purpose === "register" ? "registration" : "login"}. Please check your SMS.`,
+        isNewUser: purpose === "register",
         smsDelivered: false,
         note: "OTP is valid for 10 minutes",
-        // Show OTP in response for testing
         debugOtp: otp,
         debugNote: "SMS delivery issue. Use this OTP for testing.",
       });
     }
   } catch (err) {
-    console.error("requestLoginOtp error:", err);
+    console.error("requestSendOtp error:", err);
     return res.status(500).json({ message: "Server error" });
   }
+};
+
+// ------------------------------
+// REGISTER: POST /api/users/request-otp/register (Keep for backward compatibility if needed)
+// ------------------------------
+export const requestRegisterOtp = async (req, res) => {
+  // Logic already covered by requestSendOtp but kept for compatibility
+  return requestSendOtp(req, res);
+};
+
+// ------------------------------
+// LOGIN: POST /api/users/request-otp/login (Keep for backward compatibility if needed)
+// ------------------------------
+export const requestLoginOtp = async (req, res) => {
+  // Logic already covered by requestSendOtp but kept for compatibility
+  return requestSendOtp(req, res);
 };
 
 // ------------------------------
@@ -337,23 +263,11 @@ export const verifyOtp = async (req, res) => {
 
     let user = await User.findOne({ mobile });
 
-    const isNewUser = !user;
+    const isNewUser = !user || user.isDeleted;
 
-    if (!user) {
+    if (isNewUser) {
       // Create new user for registration
-      if (otpVerification.purpose !== "register") {
-        return res.status(400).json({
-          message: "Invalid OTP purpose. Please request registration OTP.",
-        });
-      }
       user = await User.create({ mobile });
-    } else {
-      // Existing user for login
-      if (otpVerification.purpose !== "login") {
-        return res.status(400).json({
-          message: "Invalid OTP purpose. Please request login OTP.",
-        });
-      }
     }
 
     if (user.isDeleted) {
@@ -498,7 +412,132 @@ export const resendOtp = async (req, res) => {
 };
 
 // ------------------------------
-// GET /api/users/profile  (Query parameter से user ID)
+// GET /api/users/me (Fetch logged-in user profile)
+// ------------------------------
+export const getMe = async (req, res) => {
+  try {
+    const userId = req.user.dbId;
+
+    const user = await User.findById(userId).lean();
+
+    if (!user || user.isDeleted) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({
+        message: "Your account is blocked by admin.",
+      });
+    }
+
+    return res.json({
+      user: {
+        id: user._id,
+        mobile: user.mobile,
+        email: user.email,
+        fullName: user.fullName,
+        gender: user.gender,
+        dateOfBirth: user.dateOfBirth,
+        profileImageUrl: user.profileImageUrl,
+        address: user.address,
+        city: user.city,
+        state: user.state,
+        pincode: user.pincode,
+        country: user.country,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        createdAtIST: user.createdAtIST,
+        updatedAtIST: user.updatedAtIST,
+      },
+    });
+  } catch (err) {
+    console.error("getMe error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ------------------------------
+// PATCH /api/users/me (Update logged-in user profile)
+// ------------------------------
+export const updateMe = async (req, res) => {
+  try {
+    const userId = req.user.dbId;
+
+    const {
+      fullName,
+      email,
+      gender,
+      dateOfBirth, // yyyy-mm-dd
+      address,
+      city,
+      state,
+      pincode,
+      country,
+    } = req.body;
+
+    const update = {};
+
+    if (fullName !== undefined) update.fullName = fullName.trim();
+    if (email !== undefined) update.email = email.trim();
+    if (gender !== undefined) update.gender = gender;
+    if (address !== undefined) update.address = address.trim();
+    if (city !== undefined) update.city = city.trim();
+    if (state !== undefined) update.state = state.trim();
+    if (pincode !== undefined) update.pincode = pincode.trim();
+    if (country !== undefined) update.country = country.trim();
+
+    if (dateOfBirth) {
+      const dob = new Date(dateOfBirth);
+      if (isNaN(dob.getTime())) {
+        return res.status(400).json({ message: "Invalid dateOfBirth format." });
+      }
+      update.dateOfBirth = dob;
+    }
+
+    if (req.file && req.file.path) {
+      update.profileImageUrl = req.file.path;
+    }
+
+    const user = await User.findByIdAndUpdate(userId, update, {
+      new: true,
+      runValidators: true,
+    }).lean();
+
+    if (!user || user.isDeleted) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({
+        message: "Your account is blocked by admin.",
+      });
+    }
+
+    return res.json({
+      message: "Profile updated successfully",
+      user: {
+        id: user._id,
+        mobile: user.mobile,
+        email: user.email,
+        fullName: user.fullName,
+        gender: user.gender,
+        dateOfBirth: user.dateOfBirth,
+        profileImageUrl: user.profileImageUrl,
+        address: user.address,
+        city: user.city,
+        state: user.state,
+        pincode: user.pincode,
+        country: user.country,
+      },
+    });
+  } catch (err) {
+    console.error("updateMe error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ------------------------------
+// GET /api/users/profile  (Backward compatibility - remove or keep as is)
 // ------------------------------
 export const getUserProfile = async (req, res) => {
   try {
@@ -558,7 +597,7 @@ export const getUserProfile = async (req, res) => {
 };
 
 // ------------------------------
-// PATCH /api/users/profile  (Query parameter से user ID)
+// PATCH /api/users/profile (Backward compatibility)
 // ------------------------------
 export const updateUserProfile = async (req, res) => {
   try {

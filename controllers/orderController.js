@@ -2,8 +2,11 @@ import Cart from "../models/Cart.js";
 import Order from "../models/Order.js";
 import Store from "../models/Store.js";
 import Payment from "../models/Payment.js";
+import OfferText from "../models/OfferText.js";
+import Product from "../models/Product.js";
 import mongoose from "mongoose";
 import { sendOrderConfirmationSMS, generateCollectionOTP, generateOrderNumber } from "../services/smsService.js";
+import { calculateCouponDiscount } from "./offerTextController.js";
 
 // Enhanced getUserIdFromReq function that supports both:
 // 1. Query parameters (public access)
@@ -45,7 +48,7 @@ const getUserIdFromReqWithValidation = (req) => {
 export const checkoutFromCart = async (req, res) => {
   try {
     const userId = getUserIdFromReqWithValidation(req);
-    const { storeId, paymentMethod } = req.body; // Optional: if checking out from a specific store
+    const { storeId, paymentMethod, couponCode } = req.body; // couponCode optional
     
     if (!userId) {
       return res.status(400).json({ 
@@ -73,7 +76,6 @@ export const checkoutFromCart = async (req, res) => {
     let orderStore = null;
     
     if (storeId) {
-      // Checkout only items from specific store
       itemsToCheckout = cart.items.filter(item => 
         item.store && String(item.store._id) === String(storeId)
       );
@@ -85,7 +87,6 @@ export const checkoutFromCart = async (req, res) => {
         });
       }
       
-      // Verify store exists
       const store = await Store.findOne({
         _id: storeId,
         isDeleted: false,
@@ -101,7 +102,6 @@ export const checkoutFromCart = async (req, res) => {
       
       orderStore = storeId;
     } else {
-      // Global checkout (items without store)
       itemsToCheckout = cart.items.filter(item => !item.store);
       
       if (itemsToCheckout.length === 0) {
@@ -174,26 +174,81 @@ export const checkoutFromCart = async (req, res) => {
       });
     }
 
-    const totalDiscount = subtotal - grandTotal;
+    // ── Coupon Validation via OfferText ────────────────────────────────────
+    let couponApplied = null;
+    let couponDiscountAmount = 0;
 
-    // Generate collection OTP and order number
+    if (couponCode && couponCode.trim()) {
+      const offerWithCoupon = await OfferText.findOne({
+        couponCode: couponCode.trim().toUpperCase(),
+        hasCoupon: true,
+        isDeleted: false,
+      });
+
+      if (!offerWithCoupon) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid coupon code.",
+        });
+      }
+      if (!offerWithCoupon.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: "This coupon has expired or been deactivated.",
+        });
+      }
+      if (offerWithCoupon.usageLimit > 0 && offerWithCoupon.usageCount >= offerWithCoupon.usageLimit) {
+        return res.status(400).json({
+          success: false,
+          message: "This coupon's usage limit has been reached.",
+        });
+      }
+      if (offerWithCoupon.minOrderAmount > 0 && grandTotal < offerWithCoupon.minOrderAmount) {
+        return res.status(400).json({
+          success: false,
+          message: `Minimum order amount of ₹${offerWithCoupon.minOrderAmount} is required to use this coupon.`,
+        });
+      }
+
+      couponDiscountAmount = calculateCouponDiscount(offerWithCoupon, grandTotal);
+      couponApplied = {
+        offerTextDoc: offerWithCoupon,
+        code: offerWithCoupon.couponCode,
+        discountType: offerWithCoupon.discountType,
+        discountValue: offerWithCoupon.discountValue,
+        discountAmount: couponDiscountAmount,
+      };
+
+      grandTotal = Math.max(0, grandTotal - couponDiscountAmount);
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+    const totalDiscount = subtotal - grandTotal; // includes product offer + coupon
+
     const collectionOTP = generateCollectionOTP();
     const orderNumber = generateOrderNumber();
 
-    // Set payment status based on payment method
     const paymentStatus = paymentMethod === "cod" ? "paid" : "pending";
     const orderStatus = paymentMethod === "cod" ? "confirmed" : "pending";
 
     const order = await Order.create({
       user: userId,
-      store: orderStore, // null for global orders
+      store: orderStore,
       items: orderItems,
       subtotal,
       totalDiscount,
       grandTotal,
+      couponApplied: couponApplied
+        ? {
+            code: couponApplied.code,
+            discountType: couponApplied.discountType,
+            discountValue: couponApplied.discountValue,
+            discountAmount: couponApplied.discountAmount,
+          }
+        : { code: null, discountType: null, discountValue: 0, discountAmount: 0 },
       paymentMethod: paymentMethod || "cod",
       paymentStatus,
-      status: orderStatus, // ✅ Set order status based on payment method
+      status: orderStatus,
       orderNumber,
       collectionOTP,
       shippingAddress: {
@@ -225,7 +280,15 @@ export const checkoutFromCart = async (req, res) => {
       notes: notes || "",
     });
 
-    // ✅ CREATE PAYMENT RECORD FOR COD ORDERS
+    // ── Increment usageCount on OfferText after order saved ──────────────────
+    if (couponApplied?.offerTextDoc) {
+      await OfferText.findByIdAndUpdate(couponApplied.offerTextDoc._id, {
+        $inc: { usageCount: 1 },
+      });
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+    // CREATE PAYMENT RECORD FOR COD ORDERS
     if (paymentMethod === "cod") {
       try {
         const codPayment = await Payment.create({
@@ -238,24 +301,18 @@ export const checkoutFromCart = async (req, res) => {
         console.log(`✅ COD Payment created: ${codPayment._id} for order: ${order._id}`);
       } catch (paymentError) {
         console.error(`❌ COD Payment creation failed for order ${order._id}:`, paymentError);
-        // Don't fail the order, just log the error
       }
     }
 
-    // ✅ ONLY CLEAR CART IF PAYMENT IS COD (immediate success)
-    // For online payments, cart will be cleared via webhook after payment success
+    // Remove checked out items from cart (COD only)
     if (paymentMethod === "cod") {
-      // Remove checked out items from cart
       if (storeId) {
-        // Remove only store items from cart
         cart.items = cart.items.filter(item => 
           !item.store || String(item.store._id) !== String(storeId)
         );
       } else {
-        // Remove only global items from cart
         cart.items = cart.items.filter(item => item.store);
       }
-      
       await cart.save();
     }
 
@@ -265,14 +322,13 @@ export const checkoutFromCart = async (req, res) => {
       .populate("user", "mobile email fullName")
       .lean();
 
-    // Send order confirmation SMS only for successful payments
     const customerMobile = mobile || populatedOrder.user?.mobile;
     let smsResult = null;
     
     if (customerMobile && (paymentMethod === "cod" || paymentStatus === "paid")) {
       smsResult = await sendOrderConfirmationSMS(
         customerMobile, 
-        populatedOrder.orderNumber, // Use proper order number
+        populatedOrder.orderNumber,
         collectionOTP
       );
     }
@@ -283,6 +339,14 @@ export const checkoutFromCart = async (req, res) => {
         ? `Order placed for ${populatedOrder.store?.storeName || 'store'} successfully`
         : "Global order placed successfully",
       order: populatedOrder,
+      couponApplied: couponApplied
+        ? {
+            code: couponApplied.code,
+            discountType: couponApplied.discountType,
+            discountValue: couponApplied.discountValue,
+            discountAmount: couponApplied.discountAmount,
+          }
+        : null,
       paymentRequired: paymentMethod !== "cod" && paymentStatus === "pending",
       smsNotification: {
         sent: smsResult?.success || false,
@@ -1014,6 +1078,27 @@ export const adminUpdateOrderStatus = async (req, res) => {
         message: "Order not found" 
       });
     }
+
+    // ── Stock Deduction Logic ──────────────────────────────────────────────
+    if (order.status === 'delivered' && !order.isStockDeducted) {
+      try {
+        const stockUpdates = order.items.map(item => {
+          return Product.findByIdAndUpdate(item.product, {
+            $inc: { stockQuantity: -item.quantity }
+          });
+        });
+
+        await Promise.all(stockUpdates);
+
+        // Mark as deducted
+        await Order.findByIdAndUpdate(id, { isStockDeducted: true });
+        order.isStockDeducted = true; // Update local lean object for response
+      } catch (stockError) {
+        console.error("Stock deduction error:", stockError);
+        // We don't fail the whole request, but we log it
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     return res.json({
       success: true,

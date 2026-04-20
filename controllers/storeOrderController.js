@@ -452,6 +452,26 @@ export const updateStoreOrderStatus = async (req, res) => {
       });
     }
 
+    // ── Stock Deduction Logic ──────────────────────────────────────────────
+    if (order.status === 'delivered' && !order.isStockDeducted) {
+      try {
+        const stockUpdates = order.items.map(item => {
+          return Product.findByIdAndUpdate(item.product, {
+            $inc: { stockQuantity: -item.quantity }
+          });
+        });
+
+        await Promise.all(stockUpdates);
+
+        // Mark as deducted in DB
+        await Order.findByIdAndUpdate(orderId, { isStockDeducted: true });
+        order.isStockDeducted = true; // Update local lean object for response
+      } catch (stockError) {
+        console.error("Stock deduction error (Store Owner):", stockError);
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     return res.json({
       success: true,
       message: `Order status updated to ${status} successfully`,

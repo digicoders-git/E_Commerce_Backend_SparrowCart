@@ -25,6 +25,7 @@ import deliveryBoyRoutes from "./routes/deliveryBoyRoutes.js";
 import addressRoutes from "./routes/addressRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import appVersionRoutes from "./routes/appVersionRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
 
 
 const app = express();
@@ -84,6 +85,7 @@ app.use("/api/delivery-boys", deliveryBoyRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/app-version", appVersionRoutes);
+app.use("/api/reviews", reviewRoutes);
 
 // Connect DB
 await connectDB();
