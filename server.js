@@ -30,16 +30,26 @@ import appVersionRoutes from "./routes/appVersionRoutes.js";
 const app = express();
 
 // Security & logs
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:5176",
-      "https://e-commerce-admin-panel-sparrow-cart.vercel.app",
-      "https://www.sparrowcart.in"
-    ],
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5176",
+        "https://e-commerce-admin-panel-sparrow-cart.vercel.app",
+        "https://www.sparrowcart.in",
+        "https://sparrowcart.in",
+      ];
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
