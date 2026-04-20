@@ -1,3 +1,6 @@
 node_modules
 quichApp/
 quickAppMain/
+.env
+.env.local
+.env.*.local

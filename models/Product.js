@@ -87,6 +87,10 @@ const productSchema = new Schema(
       trim: true,
       default: "",
     },
+    isNewArrival: {
+      type: Boolean,
+      default: false,
+    },
 
     createdAtIST: { type: String },
     updatedAtIST: { type: String },

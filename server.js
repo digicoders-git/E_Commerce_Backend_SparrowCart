@@ -39,6 +39,7 @@ app.use(
       const allowedOrigins = [
         "http://localhost:5173",
         "http://localhost:5174",
+        "http://localhost:5175",
         "http://localhost:5176",
         "https://e-commerce-admin-panel-sparrow-cart.vercel.app",
         "https://www.sparrowcart.in",

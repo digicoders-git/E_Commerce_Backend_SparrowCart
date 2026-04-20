@@ -26,6 +26,7 @@ export const createProduct = async (req, res) => {
       unit,
       description,
       isActive,
+      isNewArrival,
     } = req.body;
 
     if (!name || !name.trim()) {
@@ -114,6 +115,12 @@ export const createProduct = async (req, res) => {
           : typeof isActive === "string"
           ? isActive === "true"
           : !!isActive,
+      isNewArrival:
+        isNewArrival === undefined
+          ? false
+          : typeof isNewArrival === "string"
+          ? isNewArrival === "true"
+          : !!isNewArrival,
     });
 
     return res.status(201).json({
@@ -237,6 +244,7 @@ export const updateProduct = async (req, res) => {
       unit,
       description,
       isActive,
+      isNewArrival,
     } = req.body;
 
     const update = {};
@@ -300,6 +308,10 @@ export const updateProduct = async (req, res) => {
     if (isActive !== undefined) {
       update.isActive =
         typeof isActive === "string" ? isActive === "true" : !!isActive;
+    }
+    if (isNewArrival !== undefined) {
+      update.isNewArrival =
+        typeof isNewArrival === "string" ? isNewArrival === "true" : !!isNewArrival;
     }
 
     // handle images: if new images are sent, replace old ones
@@ -499,6 +511,7 @@ export const createProductForStore = async (req, res) => {
       unit,
       description,
       isActive,
+      isNewArrival,
     } = req.body;
 
     if (!storeId) {
@@ -569,6 +582,7 @@ export const createProductForStore = async (req, res) => {
       unit: unit || "piece",
       description: description ? description.trim() : "",
       isActive: isActive === undefined ? true : typeof isActive === "string" ? isActive === "true" : !!isActive,
+      isNewArrival: isNewArrival === undefined ? false : typeof isNewArrival === "string" ? isNewArrival === "true" : !!isNewArrival,
       stores: [storeId], // CHANGE: Array में storeId डालें
     });
 
@@ -723,6 +737,7 @@ export const updateProductForStore = async (req, res) => {
       unit,
       description,
       isActive,
+      isNewArrival,
     } = req.body;
 
     const update = {};
@@ -761,6 +776,8 @@ export const updateProductForStore = async (req, res) => {
     if (description !== undefined) update.description = description.trim();
     if (isActive !== undefined)
       update.isActive = typeof isActive === "string" ? isActive === "true" : !!isActive;
+    if (isNewArrival !== undefined)
+      update.isNewArrival = typeof isNewArrival === "string" ? isNewArrival === "true" : !!isNewArrival;
 
     // handle images
     if (req.files && req.files.length > 0) {
