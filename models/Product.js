@@ -91,6 +91,17 @@ const productSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    rating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    numReviews: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
 
     createdAtIST: { type: String },
     updatedAtIST: { type: String },

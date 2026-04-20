@@ -1,5 +1,6 @@
 // controllers/reviewController.js
 import Review from "../models/Review.js";
+import Product from "../models/Product.js";
 
 /**
  * @desc    Create a new review
@@ -113,6 +114,11 @@ export const updateReviewStatus = async (req, res) => {
     }
 
     res.status(200).json({ message: `Review ${status} successfully`, review });
+
+    // Update product rating metadata asynchronously
+    if (review.product) {
+       updateProductRating(review.product);
+    }
   } catch (error) {
     console.error("Error updating review status:", error);
     res.status(500).json({ message: "Failed to update review status" });
@@ -134,8 +140,38 @@ export const deleteReview = async (req, res) => {
     }
 
     res.status(200).json({ message: "Review deleted successfully" });
+    
+    // Update product rating metadata asynchronously
+    if (review.product) {
+      updateProductRating(review.product);
+    }
   } catch (error) {
     console.error("Error deleting review:", error);
     res.status(500).json({ message: "Failed to delete review" });
+  }
+};
+
+/**
+ * @desc    Helper to update product average rating and count
+ */
+export const updateProductRating = async (productId) => {
+  try {
+    const reviews = await Review.find({ product: productId, status: "approved" });
+    const numReviews = reviews.length;
+    let avgRating = 0;
+
+    if (numReviews > 0) {
+      const sum = reviews.reduce((acc, current) => acc + current.rating, 0);
+      avgRating = sum / numReviews;
+    }
+
+    await Product.findByIdAndUpdate(productId, {
+      rating: Number(avgRating.toFixed(1)),
+      numReviews: numReviews,
+    });
+    
+    console.log(`Updated product ${productId}: ${avgRating.toFixed(1)} stars, ${numReviews} reviews`);
+  } catch (error) {
+    console.error(`Failed to update product rating for ${productId}:`, error);
   }
 };
