@@ -113,14 +113,14 @@ export const createProduct = async (req, res) => {
         isActive === undefined
           ? true
           : typeof isActive === "string"
-          ? isActive === "true"
-          : !!isActive,
+            ? isActive === "true"
+            : !!isActive,
       isNewArrival:
         isNewArrival === undefined
           ? false
           : typeof isNewArrival === "string"
-          ? isNewArrival === "true"
-          : !!isNewArrival,
+            ? isNewArrival === "true"
+            : !!isNewArrival,
     });
 
     return res.status(201).json({
@@ -478,17 +478,17 @@ export const getProductsByStore = async (req, res) => {
 
     const products = await Product.find(filter)
       .populate("category", "title imageUrl isActive")
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 })
       .lean();
 
-    return res.json({ 
-      store: { 
-        id: store._id, 
+    return res.json({
+      store: {
+        id: store._id,
         storeName: store.storeName,
         storeImageUrl: store.storeImageUrl,
-        location: store.location 
-      }, 
-      products 
+        location: store.location
+      },
+      products
     });
   } catch (err) {
     console.error("getProductsByStore error:", err);
@@ -720,7 +720,7 @@ export const updateProductForStore = async (req, res) => {
     if (!existing) {
       return res.status(404).json({ message: "Product not found." });
     }
-    
+
     // Check if product is assigned to this store
     if (!existing.stores || !existing.stores.includes(storeId)) {
       return res.status(403).json({ message: "Product is not assigned to this store." });
