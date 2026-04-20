@@ -151,7 +151,7 @@ export const getActiveProducts = async (req, res) => {
 
     const products = await Product.find(filter)
       .populate("category", "title imageUrl isActive")
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 })
       .lean();
 
     return res.json({ products });
