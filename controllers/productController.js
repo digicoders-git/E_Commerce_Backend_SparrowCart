@@ -138,7 +138,7 @@ export const createProduct = async (req, res) => {
 // --------------------------------------
 export const getActiveProducts = async (req, res) => {
   try {
-    const { categoryId } = req.query;
+    const { categoryId, search } = req.query;
 
     const filter = {
       isActive: true,
@@ -147,6 +147,10 @@ export const getActiveProducts = async (req, res) => {
 
     if (categoryId) {
       filter.category = categoryId;
+    }
+
+    if (search) {
+      filter.name = { $regex: search, $options: "i" };
     }
 
     const products = await Product.find(filter)
@@ -160,6 +164,34 @@ export const getActiveProducts = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+// --------------------------------------
+// GET /api/products/search/suggestions (public)
+// --------------------------------------
+export const getSearchSuggestions = async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query || query.trim() === "") {
+      return res.json({ suggestions: [] });
+    }
+
+    const suggestions = await Product.find({
+      name: { $regex: query, $options: "i" },
+      isActive: true,
+      isDeleted: false,
+    })
+      .select("name _id images")
+      .populate("category", "title")
+      .limit(8)
+      .lean();
+
+    return res.json({ suggestions });
+  } catch (err) {
+    console.error("getSearchSuggestions error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 
 // --------------------------------------
 // GET /api/products/:id  (public: only active, non-deleted)

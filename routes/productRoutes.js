@@ -10,7 +10,9 @@ import {
   updateProductStatus,
   deleteProduct,
   adminListProductsWithStores,
+  getSearchSuggestions,
 } from "../controllers/productController.js";
+
 import { requireAdminAuth } from "../middleware/auth.js";
 import { uploadProductImages } from "../config/cloudinary.js";
 
@@ -18,7 +20,9 @@ const router = express.Router();
 
 // Public
 router.get("/", getActiveProducts);
+router.get("/search/suggestions", getSearchSuggestions);
 router.get("/:id", getProductByIdPublic);
+
 
 // Admin (static paths before :id for safety)
 router.get("/admin/list/all", requireAdminAuth, adminListProducts);
