@@ -43,6 +43,7 @@ app.use(
         "http://localhost:5175",
         "http://localhost:5176",
         "https://e-commerce-admin-panel-sparrow-cart.vercel.app",
+        "https://admin.sparrowcart.in",
         "https://www.sparrowcart.in",
         "https://sparrowcart.in",
       ];
