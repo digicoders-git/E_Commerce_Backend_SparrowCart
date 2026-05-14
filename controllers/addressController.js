@@ -2,11 +2,13 @@ import Address from "../models/Address.js";
 
 // Helper to get userId from request
 const getUserIdFromReq = (req) => {
+  // Priority order: JWT token -> body -> query -> params
   const id =
-    req.body.userId ||
-    req.query.userId ||
-    req.params.userId ||
-    req.user?.id ||
+    req.user?.dbId ||      // From JWT token (authenticated user)
+    req.user?.sub ||       // Fallback JWT field
+    req.body.userId ||     // POST body
+    req.query.userId ||    // Query parameter
+    req.params.userId ||   // URL parameter
     "";
   return typeof id === "string" ? id.trim() : id;
 };
@@ -96,6 +98,8 @@ export const createAddress = async (req, res) => {
 export const getMyAddresses = async (req, res) => {
   try {
     const userId = getUserIdFromReq(req);
+    console.log("📍 Debug - getMyAddresses userId:", userId);
+    console.log("📍 Debug - req.user:", req.user);
     
     if (!userId) {
       return res.status(400).json({ message: "userId is required." });
@@ -105,6 +109,8 @@ export const getMyAddresses = async (req, res) => {
       user: userId,
       isDeleted: false,
     }).sort({ isDefault: -1, createdAt: -1 });
+
+    console.log("📍 Debug - Found addresses:", addresses.length);
 
     return res.json({
       addresses,
