@@ -268,6 +268,11 @@ export const verifyOtp = async (req, res) => {
     if (isNewUser) {
       // Create new user for registration
       user = await User.create({ mobile });
+      // Explicitly fetch tokenVersion for JWT
+      user = await User.findById(user._id).select('+tokenVersion');
+    } else {
+      // For existing user, get tokenVersion
+      user = await User.findById(user._id).select('+tokenVersion');
     }
 
     if (user.isDeleted) {
