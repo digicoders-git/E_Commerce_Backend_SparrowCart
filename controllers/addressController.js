@@ -6,32 +6,34 @@ console.log("📦 Address collection:", Address.collection.name);
 
 // Helper to get userId from request
 const getUserIdFromReq = (req) => {
-  // Priority order: URL params -> JWT token -> query -> body
+  // Priority order: Query params -> URL params -> JWT token -> body
   let userId = null;
   
-  // First try URL params (for routes like /my/:userId)
-  if (req.params.userId) {
+  // First try query parameter (?userId=123)
+  if (req.query && req.query.userId) {
+    userId = req.query.userId;
+  }
+  // Then try URL params (/my/123)
+  else if (req.params && req.params.userId) {
     userId = req.params.userId;
   }
   // Then try JWT token (authenticated user)
-  else if (req.user?.dbId) {
+  else if (req.user && req.user.dbId) {
     userId = req.user.dbId;
-  } else if (req.user?.sub) {
+  } else if (req.user && req.user.sub) {
     userId = req.user.sub;
   }
-  // Fallback to query/body
-  else if (req.query.userId) {
-    userId = req.query.userId;
-  } else if (req.body.userId) {
+  // Fallback to body
+  else if (req.body && req.body.userId) {
     userId = req.body.userId;
   }
   
   console.log("🔍 getUserIdFromReq - Sources:", {
-    paramsUserId: req.params.userId,
+    queryUserId: req.query?.userId,
+    paramsUserId: req.params?.userId,
     jwtDbId: req.user?.dbId,
     jwtSub: req.user?.sub,
-    queryUserId: req.query.userId,
-    bodyUserId: req.body.userId,
+    bodyUserId: req.body?.userId,
     finalUserId: userId
   });
   
