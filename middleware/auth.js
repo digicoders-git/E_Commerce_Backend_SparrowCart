@@ -58,18 +58,14 @@ const requireUserAuth = async (req, res, next) => {
   try {
     const token = extractToken(req);
     if (!token) return res.status(401).json({ message: "Missing auth token" });
-
-    console.log("🔍 Debug - Token received:", token.substring(0, 50) + "...");
     
     const payload = jwt.verify(token, JWT_SECRET);
-    console.log("🔍 Debug - JWT Payload:", payload);
 
     if (payload.role !== "user") {
       return res.status(403).json({ message: "User access only." });
     }
 
     const user = await User.findById(payload.sub).select("+tokenVersion");
-    console.log("🔍 Debug - User from DB:", user ? { id: user._id, tokenVersion: user.tokenVersion, isDeleted: user.isDeleted, isBlocked: user.isBlocked } : "User not found");
     
     if (!user || user.isDeleted) {
       return res.status(401).json({ message: "User not found" });
@@ -78,15 +74,12 @@ const requireUserAuth = async (req, res, next) => {
     if (user.isBlocked) {
       return res.status(403).json({ message: "User is blocked by admin." });
     }
-
-    console.log("🔍 Debug - Token version check:", { payloadTv: payload.tv, userTv: user.tokenVersion });
     
     // Handle undefined tokenVersion in old tokens
     const payloadTokenVersion = payload.tv || 0;
     const userTokenVersion = user.tokenVersion || 0;
     
     if (userTokenVersion !== payloadTokenVersion) {
-      console.log("🔍 Debug - Token version mismatch:", { userTokenVersion, payloadTokenVersion });
       return res
         .status(401)
         .json({ message: "Session expired. Please login again." });
@@ -97,12 +90,10 @@ const requireUserAuth = async (req, res, next) => {
       dbId: user._id.toString(),
       type: "user",
     };
-    
-    console.log("🔑 Auth success - req.user set:", req.user);
 
     next();
   } catch (err) {
-    console.error("User auth error:", err);
+    console.error("User auth error:", err.message);
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
