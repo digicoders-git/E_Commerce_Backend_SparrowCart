@@ -1,31 +1,37 @@
 import Address from "../models/Address.js";
 
+console.log("📦 Address model imported:", Address);
+console.log("📦 Address model name:", Address.modelName);
+console.log("📦 Address collection:", Address.collection.name);
+
 // Helper to get userId from request
 const getUserIdFromReq = (req) => {
-  // Priority order: JWT token -> query -> body -> params
+  // Priority order: URL params -> JWT token -> query -> body
   let userId = null;
   
-  // First try JWT token (authenticated user)
-  if (req.user?.dbId) {
+  // First try URL params (for routes like /my/:userId)
+  if (req.params.userId) {
+    userId = req.params.userId;
+  }
+  // Then try JWT token (authenticated user)
+  else if (req.user?.dbId) {
     userId = req.user.dbId;
   } else if (req.user?.sub) {
     userId = req.user.sub;
   }
-  // Fallback to manual userId
+  // Fallback to query/body
   else if (req.query.userId) {
     userId = req.query.userId;
   } else if (req.body.userId) {
     userId = req.body.userId;
-  } else if (req.params.userId) {
-    userId = req.params.userId;
   }
   
   console.log("🔍 getUserIdFromReq - Sources:", {
+    paramsUserId: req.params.userId,
     jwtDbId: req.user?.dbId,
     jwtSub: req.user?.sub,
     queryUserId: req.query.userId,
     bodyUserId: req.body.userId,
-    paramsUserId: req.params.userId,
     finalUserId: userId
   });
   
@@ -115,39 +121,61 @@ export const createAddress = async (req, res) => {
 // Get all addresses for current user
 // --------------------------------------
 export const getMyAddresses = async (req, res) => {
+  console.log("🚀 === getMyAddresses START ===");
+  
   try {
-    console.log("📍 Debug - getMyAddresses called");
-    console.log("📍 Debug - req.user:", req.user);
+    console.log("📍 Step 1: Function called");
+    console.log("📍 Step 2: req.method:", req.method);
+    console.log("📍 Step 3: req.url:", req.url);
+    console.log("📍 Step 4: req.query:", req.query);
+    console.log("📍 Step 5: req.body:", req.body);
+    console.log("📍 Step 6: req.user:", req.user);
     
     const userId = getUserIdFromReq(req);
-    console.log("📍 Debug - getUserId result:", userId);
+    console.log("📍 Step 7: getUserId result:", userId);
+    console.log("📍 Step 8: userId type:", typeof userId);
     
     if (!userId) {
-      console.log("❌ Debug - No userId found");
+      console.log("❌ Step 9: No userId - returning 400");
       return res.status(400).json({ message: "userId is required." });
     }
 
-    console.log("🔍 Debug - Querying addresses for userId:", userId);
+    console.log("🔍 Step 10: About to query database");
+    console.log("🔍 Step 11: Address model:", !!Address);
     
+    // Test basic query first
+    console.log("🔍 Step 12: Testing Address.find({})");
+    const allAddresses = await Address.find({}).limit(1);
+    console.log("🔍 Step 13: All addresses test:", allAddresses.length);
+    
+    console.log("🔍 Step 14: Querying for user:", userId);
     const addresses = await Address.find({
       user: userId,
       isDeleted: false,
     }).sort({ isDefault: -1, createdAt: -1 });
 
-    console.log("📍 Debug - Found addresses:", addresses.length);
-    console.log("📍 Debug - Addresses data:", addresses);
+    console.log("📍 Step 15: Query completed");
+    console.log("📍 Step 16: Found addresses:", addresses.length);
+    console.log("📍 Step 17: Addresses data:", addresses);
 
+    console.log("📍 Step 18: Sending response");
     return res.json({
       addresses,
       count: addresses.length,
     });
   } catch (err) {
-    console.error("❌ getMyAddresses error:", {
-      message: err.message,
-      stack: err.stack,
-      name: err.name
+    console.error("❌ === ERROR in getMyAddresses ===");
+    console.error("❌ Error name:", err.name);
+    console.error("❌ Error message:", err.message);
+    console.error("❌ Error stack:", err.stack);
+    console.error("❌ Error code:", err.code);
+    console.error("❌ Full error:", err);
+    
+    return res.status(500).json({ 
+      message: "Server error", 
+      error: err.message,
+      errorName: err.name 
     });
-    return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 

@@ -15,8 +15,8 @@ const router = express.Router();
 // POST /api/addresses - Create new address (auth optional for now)
 router.post("/", createAddress);
 
-// GET /api/addresses/my - Get user's addresses (auth optional for now)
-router.get("/my", getMyAddresses);
+// GET /api/addresses/my/:userId - Get user's addresses via URL params
+router.get("/my/:userId", getMyAddresses);
 
 // GET /api/addresses/my/default - Get default address
 router.get("/my/default", requireUserAuth, getMyDefaultAddress);
