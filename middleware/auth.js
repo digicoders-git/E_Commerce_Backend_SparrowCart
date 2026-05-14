@@ -97,6 +97,8 @@ const requireUserAuth = async (req, res, next) => {
       dbId: user._id.toString(),
       type: "user",
     };
+    
+    console.log("🔑 Auth success - req.user set:", req.user);
 
     next();
   } catch (err) {

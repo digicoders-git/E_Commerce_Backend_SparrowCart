@@ -2,15 +2,34 @@ import Address from "../models/Address.js";
 
 // Helper to get userId from request
 const getUserIdFromReq = (req) => {
-  // Priority order: JWT token -> body -> query -> params
-  const id =
-    req.user?.dbId ||      // From JWT token (authenticated user)
-    req.user?.sub ||       // Fallback JWT field
-    req.body.userId ||     // POST body
-    req.query.userId ||    // Query parameter
-    req.params.userId ||   // URL parameter
-    "";
-  return typeof id === "string" ? id.trim() : id;
+  // Priority order: JWT token -> query -> body -> params
+  let userId = null;
+  
+  // First try JWT token (authenticated user)
+  if (req.user?.dbId) {
+    userId = req.user.dbId;
+  } else if (req.user?.sub) {
+    userId = req.user.sub;
+  }
+  // Fallback to manual userId
+  else if (req.query.userId) {
+    userId = req.query.userId;
+  } else if (req.body.userId) {
+    userId = req.body.userId;
+  } else if (req.params.userId) {
+    userId = req.params.userId;
+  }
+  
+  console.log("🔍 getUserIdFromReq - Sources:", {
+    jwtDbId: req.user?.dbId,
+    jwtSub: req.user?.sub,
+    queryUserId: req.query.userId,
+    bodyUserId: req.body.userId,
+    paramsUserId: req.params.userId,
+    finalUserId: userId
+  });
+  
+  return typeof userId === "string" ? userId.trim() : userId;
 };
 
 // --------------------------------------
