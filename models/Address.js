@@ -6,7 +6,7 @@ const addressSchema = new Schema(
   {
     user: {
       type: Schema.Types.ObjectId,
-      ref: "users",
+      ref: "User",  // Should match the model name
       required: true,
       index: true,
     },

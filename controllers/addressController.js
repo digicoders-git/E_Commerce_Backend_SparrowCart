@@ -97,28 +97,38 @@ export const createAddress = async (req, res) => {
 // --------------------------------------
 export const getMyAddresses = async (req, res) => {
   try {
-    const userId = getUserIdFromReq(req);
-    console.log("📍 Debug - getMyAddresses userId:", userId);
+    console.log("📍 Debug - getMyAddresses called");
     console.log("📍 Debug - req.user:", req.user);
     
+    const userId = getUserIdFromReq(req);
+    console.log("📍 Debug - getUserId result:", userId);
+    
     if (!userId) {
+      console.log("❌ Debug - No userId found");
       return res.status(400).json({ message: "userId is required." });
     }
 
+    console.log("🔍 Debug - Querying addresses for userId:", userId);
+    
     const addresses = await Address.find({
       user: userId,
       isDeleted: false,
     }).sort({ isDefault: -1, createdAt: -1 });
 
     console.log("📍 Debug - Found addresses:", addresses.length);
+    console.log("📍 Debug - Addresses data:", addresses);
 
     return res.json({
       addresses,
       count: addresses.length,
     });
   } catch (err) {
-    console.error("getMyAddresses error:", err);
-    return res.status(500).json({ message: "Server error" });
+    console.error("❌ getMyAddresses error:", {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    });
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 

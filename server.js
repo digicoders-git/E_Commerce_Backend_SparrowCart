@@ -110,8 +110,15 @@ app.use((req, res) =>
 );
 
 // Global error handler
-app.use((err, _req, res, _next) => {
-  console.error("Unhandled error:", err);
+app.use((err, req, res, next) => {
+  console.error("🚨 Unhandled error:", {
+    message: err.message,
+    stack: err.stack,
+    url: req.originalUrl,
+    method: req.method,
+    body: req.body,
+    headers: req.headers
+  });
   res.status(500).json({ message: "Internal server error" });
 });
 
